@@ -24,11 +24,11 @@
 TEST_TOOL_ROOTS := 
 
 # This defines the tests to be run that were not already defined in TEST_TOOL_ROOTS.
-TEST_ROOTS := test_mini
+TEST_ROOTS := test_mini 
 
 # This defines the tools which will be run during the the tests, and were not already defined in
 # TEST_TOOL_ROOTS.
-TOOL_ROOTS := track # nullpin libdft libdft-dta
+TOOL_ROOTS := track mytrack# nullpin libdft libdft-dta
 
 # This defines the static analysis tools which will be run during the the tests. They should not
 # be defined in TEST_TOOL_ROOTS. If a test with the same name exists, it should be defined in
@@ -39,7 +39,7 @@ TOOL_ROOTS := track # nullpin libdft libdft-dta
 SA_TOOL_ROOTS :=
 
 # This defines all the applications that will be run during the tests.
-APP_ROOTS := mini_test
+APP_ROOTS := mini_test mytest
 
 # This defines any additional object files that need to be compiled.
 OBJECT_ROOTS := 
