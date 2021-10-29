@@ -9,11 +9,12 @@
 #include <iostream>
 
 extern ins_desc_t ins_desc[XED_ICLASS_LAST];
-
 /*
-static void 
-largest_cmp(INS ins)
-{}
+static void
+dta_instrument_jmp_call(INS ins)
+{
+
+}
 */
 
 int main(int argc, char *argv[]) {
