@@ -1,3 +1,9 @@
+/*
+ * @Date: 2021-12-03 21:03:52
+ * @LastEditors: zx Zhou
+ * @LastEditTime: 2021-12-08 00:04:59
+ * @FilePath: /libdft64/tools/hashtest.cpp
+ */
 
 #include <cassert>
 #include <cstring>
@@ -40,11 +46,18 @@ int main (void) {
   char input[20];
   fread(input, 1, 20, f);
   fclose(f);
-  printf("%s\n", input);
+  // printf("%s\n", input);
   sha256_hash(buf, (unsigned char*)input, 15);
-  printf("%s", buf);
-  __libdft_get_taint(&buf);
-  __libdft_getval_taint(buf[0]);
+  // printf("%s", buf);
+  // __libdft_get_taint(&buf);
+  // __libdft_getval_taint(buf[0]);
+  
+  if (input[0] == 'h' && input[1] == 'e' && input[2] == 'l')
+      printf("magic check\n");
+
+  if (!strcmp(input, "hello world"))
+      printf("hello world!\n");
+
   if (memcmp(buf, hello_hashed, 32) == 0)
       printf("hash correctly\n");
   else {

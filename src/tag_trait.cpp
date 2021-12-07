@@ -1,3 +1,9 @@
+/*
+ * @Date: 2021-10-18 23:15:59
+ * @LastEditors: zx Zhou
+ * @LastEditTime: 2021-12-07 23:59:36
+ * @FilePath: /libdft64/src/tag_trait.cpp
+ */
 #include "pin.H"
 #include "tag_traits.h"
 #include <string.h>

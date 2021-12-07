@@ -1,3 +1,9 @@
+/*
+ * @Date: 2021-10-18 23:15:59
+ * @LastEditors: zx Zhou
+ * @LastEditTime: 2021-12-07 23:59:35
+ * @FilePath: /libdft64/src/tag_traits.h
+ */
 #ifndef LIBDFT_TAG_TRAITS_H
 #define LIBDFT_TAG_TRAITS_H
 
