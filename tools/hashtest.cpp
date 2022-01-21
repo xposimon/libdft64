@@ -1,7 +1,7 @@
 /*
  * @Date: 2021-12-03 21:03:52
  * @LastEditors: zx Zhou
- * @LastEditTime: 2021-12-08 00:04:59
+ * @LastEditTime: 2022-01-21 22:25:17
  * @FilePath: /libdft64/tools/hashtest.cpp
  */
 
@@ -39,6 +39,8 @@ unsigned char empty_hashed[] = {
   0xa4, 0x95, 0x99, 0x1b, 0x78, 0x52, 0xb8, 0x55
 };
 
+int secret = 0x12345678;
+
 int main (void) {
 
   unsigned char buf[32] = {0};
@@ -56,13 +58,41 @@ int main (void) {
       printf("magic check\n");
 
   if (!strcmp(input, "hello world"))
-      printf("hello world!\n");
+      printf("strcmp test\n");
 
   if (memcmp(buf, hello_hashed, 32) == 0)
-      printf("hash correctly\n");
+      printf("memcmp test: hash correctly\n");
   else {
-      printf("hash error!\n");
+      printf("memcmp test: hash error!\n");
+  }
+  if (input[0] == 'a'){
+    // another bbl
+    if (!strcmp(input, "another strcmp!"))
+        printf("bbl test: second strcmp!\n");
   }
 
+  if (!strncmp(input, (input+5), 3)){
+      printf("strncmp test!\n");
+    }
+
+  if (strrchr("hello world", input[0])){
+      printf("strrchr test\n");
+  }
+
+  if (strrchr(input, 'h')){
+      printf("strrchr test2\n");
+  }
+
+  if (!strcoll(input, "hello world"))
+      printf("strcoll test\n");
+
+  if (*((int*)input) == secret){
+      printf("direct int cmp\n");
+  } 
+
+  if (*((long long*)input) == 0x1234567890abcdef){
+      printf("direct long long cmp\n");
+
+  }
   return 0;
 }
