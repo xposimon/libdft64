@@ -1,0 +1,3 @@
+[submodule "pass"]
+	path = pass
+	url = https://github.com/James-yaoshenglong/pass.git
