@@ -24,11 +24,11 @@
 TEST_TOOL_ROOTS := 
 
 # This defines the tests to be run that were not already defined in TEST_TOOL_ROOTS.
-TEST_ROOTS := test_mini 
+TEST_ROOTS := 
 
 # This defines the tools which will be run during the the tests, and were not already defined in
 # TEST_TOOL_ROOTS.
-TOOL_ROOTS := track cmp_hook# nullpin libdft libdft-dta
+TOOL_ROOTS := cmp_hook
 
 # This defines the static analysis tools which will be run during the the tests. They should not
 # be defined in TEST_TOOL_ROOTS. If a test with the same name exists, it should be defined in
@@ -39,7 +39,7 @@ TOOL_ROOTS := track cmp_hook# nullpin libdft libdft-dta
 SA_TOOL_ROOTS :=
 
 # This defines all the applications that will be run during the tests.
-APP_ROOTS := mini_test mytest
+APP_ROOTS := 
 
 # This defines any additional object files that need to be compiled.
 OBJECT_ROOTS := 
@@ -93,7 +93,10 @@ endif
 LOGGING_FLAGS = -DNO_PINTOOL_LOG
 TOOL_CXXFLAGS += $(LOGGING_FLAGS) -I$(LIBDFT_INC_PATH) -L$(LIBDFT_PATH)
 TOOL_LIBS += -L$(LIBDFT_PATH) -ldft
+CXXFLAGS = ""
 
-INPUT_FILE=cur_input
-test_mini: $(OBJDIR)/track$(PINTOOL_SUFFIX) ${OBJDIR}/mini_test$(EXE_SUFFIX)
-	$(PIN) -t $< -- $(OBJDIR)mini_test$(EXE_SUFFIX)  ${INPUT_FILE}
+INPUT_FILE=$(OBJDIR)/cur_input
+hashtest: hashtest.cpp sha256.c
+	rm -rf result.txt
+	g++ -I ./deps/ $^ -o $(OBJDIR)/hashtest
+	$(PIN) -t $(OBJDIR)/cmp_hook.so -- $(OBJDIR)/hashtest  ${INPUT_FILE}
