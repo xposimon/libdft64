@@ -1,7 +1,7 @@
 /*
  * @Date: 2021-12-03 21:03:52
  * @LastEditors: zx Zhou
- * @LastEditTime: 2022-01-21 22:25:17
+ * @LastEditTime: 2022-03-21 00:49:47
  * @FilePath: /libdft64/tools/hashtest.cpp
  */
 
@@ -41,10 +41,15 @@ unsigned char empty_hashed[] = {
 
 int secret = 0x12345678;
 
-int main (void) {
+int main (int argc, char *argv[]) {
 
   unsigned char buf[32] = {0};
-  FILE *f = fopen("/home/xposimon/Desktop/buginj/libdft64/tools/cur_input", "rb");
+  if (argc < 1){
+    printf("not enough paras\n");
+    return -1;
+  }
+  
+  FILE *f = fopen(argv[1], "rb");
   char input[20];
   fread(input, 1, 20, f);
   fclose(f);
