@@ -1,39 +1,43 @@
 /*
  * @Date: 2021-12-06 21:52:44
  * @LastEditors: zx Zhou
- * @LastEditTime: 2022-03-21 01:59:43
+ * @LastEditTime: 2022-03-29 17:45:01
  * @FilePath: /libdft64/tools/cmp_hook.cpp
  */
 
 #include "cmp_hook.h"
 
 //#define __DEBUG__
+#define OUTPUT_PATH "./scripts/info/cmp_hook.info"
 
-std::vector<FSFG> fuzz_sfg;
+std::map<ADDRINT, FSFG> fzstate;
 std::ofstream out;
 
-size_t tagmap_get_mem_len(ADDRINT addr, unsigned int n) {
-  size_t tag_len = 0;
-  for (size_t i = 0; i < n; i++) {
-    const tag_t t = tagmap_getb(addr + i);
-    if (tag_is_empty(t))
-      continue;
-    // LOGD("[tagmap_getn] %lu, ts: %d, %s\n", i, ts, tag_sprint(t).c_str());
-    tag_len ++;
-  }
-  return tag_len;
+tag_t tagmap_get_mem_len(ADDRINT addr, unsigned int n, size_t &tag_len) {
+    tag_t ts = tag_traits<tag_t>::cleared_val;
+    tag_len = 0;
+    for (size_t i = 0; i < n; i++) {
+        const tag_t t = tagmap_getb(addr + i);
+        if (tag_is_empty(t))
+            continue;
+        tag_len ++;
+        ts = tag_combine(ts, t);
+    }
+    return ts;
 }
 
-size_t tagmap_get_reg_len(THREADID tid, unsigned int reg_idx, size_t n) {
-  size_t tag_len = 0;
-  for (size_t i = 0; i < n; i++) {
-    const tag_t t = tagmap_getb_reg(tid, reg_idx, i);
-    if (tag_is_empty(t))
-      continue;
-    tag_len++;
-  }
-  return tag_len;
-}
+tag_t tagmap_get_reg_len(THREADID tid, unsigned int reg_idx, size_t n, size_t &tag_len) {
+    tag_t ts = tag_traits<tag_t>::cleared_val;
+    tag_len = 0;
+    for (size_t i = 0; i < n; i++) {
+        const tag_t t = tagmap_getb_reg(tid, reg_idx, i);
+        if (tag_is_empty(t))
+            continue;
+        tag_len++;
+        ts = tag_combine(ts, t);
+    }
+    return ts;
+    }
 
 // strcmp: sub eax, ecx
 //         jne loc
@@ -46,21 +50,21 @@ VOID strcmp_hook(const char* s1, const char* s2, size_t ret_addr){
     if (ret_addr > 0x7fffffffffff) {
       return;
     }
-    size_t len1 = strlen(s1), len2 = strlen(s2);
+    tag_t tag0, tag1;
+    size_t tagl0, tagl1;
+    size_t len0 = strlen(s1), len1 = strlen(s2);
     // tag_t t1 = tagmap_getn((ADDRINT)s1, len1);
     // tag_t t2 = tagmap_getn((ADDRINT)s2, len2);
-    size_t tagl1 = tagmap_get_mem_len((ADDRINT)s1, len1);
-    size_t tagl2 = tagmap_get_mem_len((ADDRINT)s2, len2);
-    
-    if (max(tagl1, tagl2)){
-    #ifdef __DEBUG__
-        printf("[+] strcmp cmp len: %ld, addr: %lx\n", max(tagl1, tagl2), ret_addr);
-        for(std::vector<FSFG>::iterator it = fuzz_sfg.begin(); it != fuzz_sfg.end(); it++){
-            std::cout<<*it<<std::endl;
+    tag0 = tagmap_get_mem_len((ADDRINT)s1, len0, tagl0);
+    tag1 = tagmap_get_mem_len((ADDRINT)s2, len1, tagl1);
+    size_t cmp_len = max(tagl0, tagl1);
+    if (cmp_len){
+        if (fzstate.find(ret_addr) != fzstate.end()){
+            fzstate[ret_addr].update_tag(tag_combine(tag0, tag1));
         }
-    #endif
-        FSFG new_state(max(tagl1, tagl2), ret_addr);
-        fuzz_sfg.push_back(new_state);
+        else{
+            fzstate[ret_addr] = FSFG(cmp_len, tag_combine(tag0, tag1), ret_addr);
+        }
     }
 }
 
@@ -68,17 +72,18 @@ VOID memcmp_hook(const void * ptr1, const void * ptr2, size_t num, size_t ret_ad
     if (ret_addr > 0x7fffffffffff) {
       return;
     }
-    size_t tagl1 = tagmap_get_mem_len((ADDRINT)ptr1, num);
-    size_t tagl2 = tagmap_get_mem_len((ADDRINT)ptr2, num);
-    if (max(tagl1, tagl2)){
-    #ifdef __DEBUG__
-        printf("[+] memcmp cmp len: %ld, addr: %lx\n", max(tagl1, tagl2), ret_addr);
-        for(std::vector<FSFG>::iterator it = fuzz_sfg.begin(); it != fuzz_sfg.end(); it++){
-            std::cout<<*it<<std::endl;
+    tag_t tag0, tag1;
+    size_t tagl0, tagl1;
+    tag0 = tagmap_get_mem_len((ADDRINT)ptr1, num, tagl0);
+    tag1 = tagmap_get_mem_len((ADDRINT)ptr2, num, tagl1);
+    size_t cmp_len = max(tagl0, tagl1);
+    if (cmp_len){
+        if (fzstate.find(ret_addr) != fzstate.end()){
+            fzstate[ret_addr].update_tag(tag_combine(tag0, tag1));
         }
-    #endif
-        FSFG new_state(max(tagl1, tagl2), ret_addr);
-        fuzz_sfg.push_back(new_state);
+        else{
+            fzstate[ret_addr] = FSFG(cmp_len, tag_combine(tag0, tag1), ret_addr);
+        }
     }
 }
 
@@ -86,17 +91,18 @@ VOID strncmp_hook(const char * ptr1, const char * ptr2, size_t num, size_t ret_a
     if (ret_addr > 0x7fffffffffff) {
       return;
     }
-    size_t tagl1 = tagmap_get_mem_len((ADDRINT)ptr1, num);
-    size_t tagl2 = tagmap_get_mem_len((ADDRINT)ptr2, num);
-    if (max(tagl1, tagl2)){
-    #ifdef __DEBUG__
-        printf("[+] strncmp cmp len: %ld, addr: %lx\n", max(tagl1, tagl2), ret_addr);
-        for(std::vector<FSFG>::iterator it = fuzz_sfg.begin(); it != fuzz_sfg.end(); it++){
-            std::cout<<*it<<std::endl;
+    tag_t tag0, tag1;
+    size_t tagl0, tagl1;
+    tag0 = tagmap_get_mem_len((ADDRINT)ptr1, num, tagl0);
+    tag1 = tagmap_get_mem_len((ADDRINT)ptr2, num, tagl1);
+    size_t cmp_len = max(tagl0, tagl1);
+    if (cmp_len){
+        if (fzstate.find(ret_addr) != fzstate.end()){
+            fzstate[ret_addr].update_tag(tag_combine(tag0, tag1));
         }
-    #endif
-        FSFG new_state(max(tagl1, tagl2), ret_addr);
-        fuzz_sfg.push_back(new_state);
+        else{
+            fzstate[ret_addr] = FSFG(cmp_len, tag_combine(tag0, tag1), ret_addr);
+        }
     }   
 }
 
@@ -104,26 +110,25 @@ VOID strrchr_hook( const char * str, int character, size_t ret_addr ){
     if (ret_addr > 0x7fffffffffff) {
       return;
     }
-    size_t largest_cmp = 0;
-
-    size_t len1 = strlen(str);
-    size_t tagl1 = tagmap_get_mem_len((ADDRINT)str, len1);
-    size_t tagl2 = tagmap_get_mem_len((ADDRINT)character, 1);
-    if (tagl2 != 0){
-      largest_cmp = tagl2;
+    size_t cmp_len = 0;
+    tag_t tag0, tag1;
+    size_t tagl0, tagl1;
+    size_t len0 = strlen(str);
+    tag0 = tagmap_get_mem_len((ADDRINT)str, len0, tagl0);
+    tag1 = tagmap_get_mem_len((ADDRINT)character, 1, tagl1);
+    if (tagl1 != 0){
+      cmp_len = tagl1;
     }
     else{
-      largest_cmp = max(tagl1, tagl2);
+      cmp_len = max(tagl0, tagl1);
     }
-    if (largest_cmp){
-    #ifdef __DEBUG__
-        printf("[+] strrchr cmp len: %ld, addr: %lx\n", largest_cmp, ret_addr);
-        for(std::vector<FSFG>::iterator it = fuzz_sfg.begin(); it != fuzz_sfg.end(); it++){
-            std::cout<<*it<<std::endl;
+    if (cmp_len){
+        if (fzstate.find(ret_addr) != fzstate.end()){
+            fzstate[ret_addr].update_tag(tag_combine(tag0, tag1));
         }
-    #endif
-        FSFG new_state(largest_cmp, ret_addr);
-        fuzz_sfg.push_back(new_state);
+        else{
+            fzstate[ret_addr] = FSFG(cmp_len, tag_combine(tag0, tag1), ret_addr);
+        }
     }  
 }
 
@@ -189,17 +194,16 @@ VOID memory_taint_check_mvi(ADDRINT mem_addr, size_t num, ADDRINT ret_addr)
 {
     //printf("addr:%lx\n", mem_addr);
     size_t tagl=0;
+    tag_t tag;
     if (mem_addr)
-        tagl = tagmap_get_mem_len((ADDRINT)mem_addr, num);
+        tag = tagmap_get_mem_len((ADDRINT)mem_addr, num, tagl);
     if (tagl){
-    #ifdef __DEBUG__
-        printf("[+] direct mvi cmp len: %ld, addr: %lx\n", tagl, ret_addr);
-        for(std::vector<FSFG>::iterator it = fuzz_sfg.begin(); it != fuzz_sfg.end(); it++){
-            std::cout<<*it<<std::endl;
+        if (fzstate.find(ret_addr) != fzstate.end()){
+            fzstate[ret_addr].update_tag(tag);
         }
-    #endif 
-        FSFG new_state(tagl, ret_addr);
-        fuzz_sfg.push_back(new_state);
+        else{
+            fzstate[ret_addr] = FSFG(tagl, tag, ret_addr);
+        }
     }
 
 }
@@ -208,52 +212,50 @@ VOID memory_taint_check_mvm(ADDRINT mem_addr0, ADDRINT mem_addr1, size_t num0, s
 {
     //printf("addr1:%lx, addr2:%lx\n", mem_addr0, mem_addr1);
     size_t tagl0=0, tagl1=0;
+    tag_t tag0, tag1;
     if (mem_addr0)
-        tagl0 = tagmap_get_mem_len((ADDRINT)mem_addr0, num0);
+        tag0 = tagmap_get_mem_len((ADDRINT)mem_addr0, num0, tagl0);
     if (mem_addr1)
-        tagl1 = tagmap_get_mem_len((ADDRINT)mem_addr1, num1);
-    if (max(tagl0, tagl1)){
-    #ifdef __DEBUG__
-        printf("[+] direct mvm cmp len: %ld, addr: %lx\n", max(tagl0, tagl1), ret_addr);
-        for(std::vector<FSFG>::iterator it = fuzz_sfg.begin(); it != fuzz_sfg.end(); it++){
-            std::cout<<*it<<std::endl;
+        tag1 = tagmap_get_mem_len((ADDRINT)mem_addr1, num1, tagl1);
+    size_t cmp_len =max(tagl0, tagl1); 
+    if (cmp_len){
+        if (fzstate.find(ret_addr) != fzstate.end()){
+            fzstate[ret_addr].update_tag(tag_combine(tag0, tag1));
         }
-    #endif
-        FSFG new_state(max(tagl0, tagl1), ret_addr);
-        fuzz_sfg.push_back(new_state);
-        
+        else{
+            fzstate[ret_addr] = FSFG(cmp_len, tag_combine(tag0, tag1), ret_addr);
+        }
     }
-
 }
 
 VOID reg_taint_check(THREADID tid, unsigned int reg_idx, size_t n, size_t ret_addr)
 {
-    size_t tagl = tagmap_get_reg_len(tid, reg_idx, n);
+    tag_t tag;
+    size_t tagl;
+    tag = tagmap_get_reg_len(tid, reg_idx, n, tagl);
     if (tagl)
     {
-    #ifdef __DEBUG__
-        printf("[+] direct reg cmp len: %ld, reg: 0x%x\n", tagl, reg_idx);
-        for(std::vector<FSFG>::iterator it = fuzz_sfg.begin(); it != fuzz_sfg.end(); it++){
-            std::cout<<*it<<std::endl;
+        if (fzstate.find(ret_addr) != fzstate.end()){
+            fzstate[ret_addr].update_tag(tag);
         }
-    #endif
-        FSFG new_state(tagl, ret_addr);
-        fuzz_sfg.push_back(new_state);
+        else{
+            fzstate[ret_addr] = FSFG(tagl, tag, ret_addr);
+        }
     }
 }
 
 VOID DirectCmpHook(TRACE trace, VOID *v)
 {
     // TODO: add an option for user-specified output filename
-    out.open("result.txt", std::ios::app);
+    out.open(OUTPUT_PATH, std::ios::app);
     for (BBL bbl = TRACE_BblHead(trace); BBL_Valid(bbl); bbl = BBL_Next(bbl)){
         // Output the fuzzing state flow graph for a bbl
         if (out.is_open()){
-            for(std::vector<FSFG>::iterator it = fuzz_sfg.begin(); it != fuzz_sfg.end(); it++){
-                out<<*it<<std::endl;
+            for(std::map<ADDRINT, FSFG>::iterator it = fzstate.begin(); it != fzstate.end(); it++){
+                out<<std::hex<<it->first<<":"<<it->second<<std::endl;
             }
         }
-        fuzz_sfg.clear();
+        fzstate.clear();
 
         INS tail_ins = BBL_InsTail(bbl);
         if (INS_Valid(tail_ins) && INS_IsBranch(tail_ins)){    

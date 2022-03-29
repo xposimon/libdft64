@@ -1,7 +1,7 @@
 /*
  * @Date: 2022-03-11 16:56:04
  * @LastEditors: zx Zhou
- * @LastEditTime: 2022-03-21 01:50:50
+ * @LastEditTime: 2022-03-29 19:04:40
  * @FilePath: /libdft64/tools/cmp_hook.h
  */
 
@@ -28,18 +28,25 @@
 
 class FSFG {
   public:
-    FSFG(size_t largest_cmp, size_t addr): largest_cmp(largest_cmp), addr(addr){};
+    FSFG():cmp_len(0), tainted_tag(0), addr(0){};
+    FSFG(size_t cmp_len, tag_t tainted_tag, size_t addr): cmp_len(cmp_len), tainted_tag(tainted_tag), addr(addr){};
     friend std::ostream & operator<<(std::ostream & os,const FSFG & c);
+    void update_tag(tag_t tag);
   private:
-    size_t largest_cmp;
+    size_t cmp_len;
     // latency
     // input cor with previous blocks
+    tag_t tainted_tag;
     size_t addr;
 };
 
 std::ostream & operator<<(std::ostream & os,const FSFG & c){
-  os << c.addr << ":" << c.largest_cmp;
+  os << c.cmp_len<<"|"<<tag_sprint(c.tainted_tag);
   return os;
+}
+
+void FSFG::update_tag(tag_t tag){
+    this->tainted_tag = tag_combine(this->tainted_tag, tag);
 }
 
 size_t tagmap_get_len(ADDRINT addr, unsigned int n);

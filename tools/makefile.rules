@@ -28,7 +28,7 @@ TEST_ROOTS :=
 
 # This defines the tools which will be run during the the tests, and were not already defined in
 # TEST_TOOL_ROOTS.
-TOOL_ROOTS := cmp_hook
+TOOL_ROOTS := cmp_hook fuzz_cfg IFR_BasicBlock
 
 # This defines the static analysis tools which will be run during the the tests. They should not
 # be defined in TEST_TOOL_ROOTS. If a test with the same name exists, it should be defined in
@@ -91,12 +91,43 @@ endif
 ###### Special tools' build rules ######
 
 LOGGING_FLAGS = -DNO_PINTOOL_LOG
-TOOL_CXXFLAGS += $(LOGGING_FLAGS) -I$(LIBDFT_INC_PATH) -L$(LIBDFT_PATH)
+TOOL_CXXFLAGS += $(LOGGING_FLAGS) -I$(LIBDFT_INC_PATH) -L$(LIBDFT_PATH) -L ./deps/
 TOOL_LIBS += -L$(LIBDFT_PATH) -ldft
 CXXFLAGS = ""
+SCRIPT_DIR=./scripts/
+INFO_DIR=$(SCRIPT_DIR)info/
+PIN_TOOL_DIR=./pin_tool/
 
-INPUT_FILE=$(OBJDIR)/cur_input
-hashtest: hashtest.cpp sha256.c
-	rm -rf result.txt
+.PHONY: collector test_cmp test_cfg test_all clear_wrong_so clean
+
+INPUT_FILE=$(OBJDIR)cur_input
+$(OBJDIR)hashtest: hashtest.cpp sha256.c
 	g++ -I ./deps/ $^ -o $(OBJDIR)/hashtest
-	$(PIN) -t $(OBJDIR)/cmp_hook.so -- $(OBJDIR)/hashtest  ${INPUT_FILE}
+	cp cur_input $(INPUT_FILE)
+
+clear_wrong_so: 
+	rm -rf $(OBJDIR)fuzz_cfg.so $(OBJDIR)IFR_BasicBlock.so
+
+$(OBJDIR)fuzz_cfg.so: $(OBJDIR)fuzz_cfg.o $(OBJDIR)IFR_BasicBlock.o
+	$(LINKER) $(TOOL_LDFLAGS) $(LINK_EXE)$@ $^ $(TOOL_LPATHS) $(TOOL_LIBS)
+
+collector: clear_wrong_so $(OBJDIR)cmp_hook.so $(OBJDIR)fuzz_cfg.so
+	cp $(OBJDIR)cmp_hook.so $(PIN_TOOL_DIR)cmp_hook.so
+	cp $(OBJDIR)fuzz_cfg.so $(PIN_TOOL_DIR)fuzz_cfg.so
+
+test_cmp: $(PIN_TOOL_DIR)cmp_hook.so $(OBJDIR)hashtest
+	sudo sh -c "echo 0 > /proc/sys/kernel/randomize_va_space"
+	rm -rf $(INFO_DIR)cmp_hook.info
+	$(PIN) -t $< -- $(word 2, $^) $(INPUT_FILE) 
+
+test_cfg: $(PIN_TOOL_DIR)fuzz_cfg.so $(OBJDIR)hashtest
+	sudo sh -c "echo 0 > /proc/sys/kernel/randomize_va_space"
+	rm -rf $(INFO_DIR)fuzz_cfg.info
+	$(PIN) -t $< -- $(word 2, $^) $(INPUT_FILE)
+
+test_all: test_cmp test_cfg
+
+clean_all:
+	rm -rf $(OBJDIR)/*
+	rm -rf $(PIN_TOOL_DIR)/*
+	rm -rf $(INFO_DIR)/*.info
